@@ -29,8 +29,10 @@ TOOLS = [
 
 # Start the conversation
 messages = [
+    {"role": "system", "content": "You are a helpful assistant with access to tools such as get_canvas_info for checking Canvas LMS data like assignments and due dates."},
     {"role": "user", "content": "What homework is due today?"}
 ]
+
 
 # First chat to determine if the LLM wants to call a tool
 response = chat(
