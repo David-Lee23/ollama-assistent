@@ -58,7 +58,8 @@ print(json.dumps(response.model_dump(), indent=2))
 if tool_calls:
     tool_call = tool_calls[0]
     tool_name = tool_call.function.name
-    tool_args = json.loads(tool_call.function.arguments)
+    # Handle both dict and string arguments
+    tool_args = tool_call.function.arguments if isinstance(tool_call.function.arguments, dict) else json.loads(tool_call.function.arguments)
 
     if tool_name == "get_canvas_info":
         result = get_canvas_info(
