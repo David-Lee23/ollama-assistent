@@ -43,7 +43,7 @@ messages = [
 
 # Force the tool call for testing
 response = chat(
-    model = "deepseek-coder:6.7b-instruct-q4_K_M",
+    model = "qwen:7b",
     messages=messages,
     options={
         "tools": TOOLS,
