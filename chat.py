@@ -2,28 +2,31 @@ from ollama import chat
 from canvas_tools import get_canvas_info
 import json
 
-# Define tool schema
+# Define tool schema for Ollama
 TOOLS = [
     {
-        "name": "get_canvas_info",
-        "description": "Get Canvas data such as assignments, announcements, or calendar events.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "resource": {
-                    "type": "string",
-                    "description": "What kind of Canvas data to fetch (assignments, announcements, calendar)"
+        "type": "function",
+        "function": {
+            "name": "get_canvas_info",
+            "description": "Get Canvas data such as assignments, announcements, or calendar events.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "resource": {
+                        "type": "string",
+                        "description": "What kind of Canvas data to fetch (assignments, announcements, calendar)"
+                    },
+                    "filter": {
+                        "type": "string",
+                        "description": "Optional filter like 'unread' or 'overdue'"
+                    },
+                    "date": {
+                        "type": "string",
+                        "description": "Optional date or timeframe like 'today', '2024-06-24', or 'next_week'"
+                    }
                 },
-                "filter": {
-                    "type": "string",
-                    "description": "Optional filter like 'unread' or 'overdue'"
-                },
-                "date": {
-                    "type": "string",
-                    "description": "Optional date or timeframe like 'today', '2024-06-24', or 'next_week'"
-                }
-            },
-            "required": ["resource"]
+                "required": ["resource"]
+            }
         }
     }
 ]
@@ -43,22 +46,19 @@ messages = [
 
 # Force the tool call for testing
 response = chat(
-    model = "qwen:7b",
+    model="qwen3:8b",
     messages=messages,
-    options={
-        "tools": TOOLS,
-        "tool_choice": {"type": "required", "name": "get_canvas_info"},  # Force the tool
-        "format": "json"
-    }
+    tools=TOOLS
 )
 
-tool_call = response.get("message", {}).get("tool_calls")
-print("TOOL CALL RAW:", tool_call)  # Debug print
+tool_calls = response.message.tool_calls if hasattr(response.message, 'tool_calls') else None
+print("TOOL CALLS RAW:", tool_calls)  # Debug print
 print(json.dumps(response.model_dump(), indent=2))
 
-if tool_call:
-    tool_name = tool_call[0]["name"]
-    tool_args = tool_call[0].get("args", {})
+if tool_calls:
+    tool_call = tool_calls[0]
+    tool_name = tool_call.function.name
+    tool_args = json.loads(tool_call.function.arguments)
 
     if tool_name == "get_canvas_info":
         result = get_canvas_info(
@@ -68,12 +68,12 @@ if tool_call:
         )
 
         # Inject tool output into the message stream
-        messages.append({"role": "assistant", "tool_calls": tool_call})
+        messages.append({"role": "assistant", "tool_calls": tool_calls})
         messages.append({"role": "tool", "name": tool_name, "content": str(result)})
 
         # Final LLM response with the tool output
         follow_up = chat(
-            model="llama3:8b-instruct-q4_K_M",
+            model="qwen3:8b",
             messages=messages
         )
 
