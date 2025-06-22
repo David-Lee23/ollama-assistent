@@ -41,7 +41,7 @@ messages = [
 
 # Force the tool call for testing
 response = chat(
-    model="llama3:8b-instruct-q4_K_M",
+    model = "deepseek-coder:6.7b-instruct-q4_K_M",
     messages=messages,
     options={
         "tools": TOOLS,
