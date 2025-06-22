@@ -61,24 +61,32 @@ if tool_calls:
     # Handle both dict and string arguments
     tool_args = tool_call.function.arguments if isinstance(tool_call.function.arguments, dict) else json.loads(tool_call.function.arguments)
 
+    print(f"\n🔧 Calling tool: {tool_name}")
+    print(f"🔧 Tool args: {tool_args}")
+
     if tool_name == "get_canvas_info":
-        result = get_canvas_info(
-            resource=tool_args.get("resource"),
-            filter=tool_args.get("filter"),
-            date=tool_args.get("date")
-        )
+        try:
+            result = get_canvas_info(
+                resource=tool_args.get("resource"),
+                filter=tool_args.get("filter"),
+                date=tool_args.get("date")
+            )
+            print(f"🔧 Tool result: {result}")
 
-        # Inject tool output into the message stream
-        messages.append({"role": "assistant", "tool_calls": tool_calls})
-        messages.append({"role": "tool", "name": tool_name, "content": str(result)})
+            # Inject tool output into the message stream
+            messages.append({"role": "assistant", "tool_calls": tool_calls})
+            messages.append({"role": "tool", "name": tool_name, "content": str(result)})
 
-        # Final LLM response with the tool output
-        follow_up = chat(
-            model="qwen3:8b",
-            messages=messages
-        )
+            print("🔧 Calling LLM for final response...")
+            # Final LLM response with the tool output
+            follow_up = chat(
+                model="qwen3:8b",
+                messages=messages
+            )
 
-        print("\n🤖:", follow_up["message"]["content"])
+            print("\n🤖:", follow_up["message"]["content"])
+        except Exception as e:
+            print(f"🚫 Error calling tool: {e}")
     else:
         print("🚫 Tool was requested, but not implemented:", tool_name)
 else:
