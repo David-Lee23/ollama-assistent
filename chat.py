@@ -1,12 +1,11 @@
 from ollama import chat
 
-messages = [
-  {"role": "user", "content": "Explain the difference between a process and a thread."}
-]
-
 response = chat(
-  model='llama3:8b-instruct',
-  messages=messages
+    model='llama3:8b-instruct-q4_K_M',
+    messages=[
+        {"role": "user", "content": "What is the difference between a process and a thread?"}
+    ]
 )
 
 print(response['message']['content'])
+
