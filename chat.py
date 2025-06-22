@@ -1,7 +1,7 @@
 from ollama import chat
 from canvas_tools import get_canvas_info
 
-# Tool schema definition
+# Define tool schema
 TOOLS = [
     {
         "name": "get_canvas_info",
@@ -27,53 +27,55 @@ TOOLS = [
     }
 ]
 
-# Start the conversation
+# Test message with stronger prompt
 messages = [
-    {"role": "system", "content": "You are a helpful assistant with access to tools such as get_canvas_info for checking Canvas LMS data like assignments and due dates."},
-    {"role": "user", "content": "What homework is due today?"}
+    {
+        "role": "system",
+        "content": "You are an assistant with access to a tool called get_canvas_info, which can retrieve live Canvas LMS data such as assignments due today. Always use it instead of guessing."
+    },
+    {
+        "role": "user",
+        "content": "What homework is due today?"
+    }
 ]
 
-
-# First chat to determine if the LLM wants to call a tool
+# Force the tool call for testing
 response = chat(
     model="llama3:8b-instruct-q4_K_M",
     messages=messages,
     options={
         "tools": TOOLS,
-        "tool_choice": "auto",
+        "tool_choice": {"type": "required", "name": "get_canvas_info"},  # Force the tool
         "format": "json"
     }
 )
 
 tool_call = response.get("message", {}).get("tool_calls")
+print("TOOL CALL RAW:", tool_call)  # Debug print
 
 if tool_call:
-    # Extract tool name and arguments
     tool_name = tool_call[0]["name"]
     tool_args = tool_call[0].get("args", {})
 
     if tool_name == "get_canvas_info":
-        # Call the real function with parsed args
-        tool_output = get_canvas_info(
+        result = get_canvas_info(
             resource=tool_args.get("resource"),
             filter=tool_args.get("filter"),
             date=tool_args.get("date")
         )
 
-        # Append to message history and continue conversation
+        # Inject tool output into the message stream
         messages.append({"role": "assistant", "tool_calls": tool_call})
-        messages.append({"role": "tool", "name": tool_name, "content": str(tool_output)})
+        messages.append({"role": "tool", "name": tool_name, "content": str(result)})
 
+        # Final LLM response with the tool output
         follow_up = chat(
             model="llama3:8b-instruct-q4_K_M",
             messages=messages
         )
 
-        print("TOOL CALL RAW:", tool_call)
-
         print("\n🤖:", follow_up["message"]["content"])
     else:
-        print("🚫 Unsupported tool requested:", tool_name)
+        print("🚫 Tool was requested, but not implemented:", tool_name)
 else:
-    # No tool needed, just print the response
-    print("\n🤖:", response["message"]["content"])
+    print("🤖:", response['message']['content'])
