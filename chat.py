@@ -54,7 +54,7 @@ response = chat(
 
 tool_call = response.get("message", {}).get("tool_calls")
 print("TOOL CALL RAW:", tool_call)  # Debug print
-print(json.dumps(response, indent=2))  # View all keys and content
+print(json.dumps(response.model_dump(), indent=2))
 
 if tool_call:
     tool_name = tool_call[0]["name"]
