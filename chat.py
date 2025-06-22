@@ -1,5 +1,6 @@
 from ollama import chat
 from canvas_tools import get_canvas_info
+import json
 
 # Define tool schema
 TOOLS = [
@@ -31,13 +32,14 @@ TOOLS = [
 messages = [
     {
         "role": "system",
-        "content": "You are an assistant with access to a tool called get_canvas_info, which can retrieve live Canvas LMS data such as assignments due today. Always use it instead of guessing."
+        "content": "You are an AI assistant with access to the tool `get_canvas_info`, which retrieves live assignment and schedule data from Canvas LMS. If the user asks about anything Canvas-related, you must call this tool using JSON format."
     },
     {
         "role": "user",
         "content": "What homework is due today?"
     }
 ]
+
 
 # Force the tool call for testing
 response = chat(
@@ -52,6 +54,7 @@ response = chat(
 
 tool_call = response.get("message", {}).get("tool_calls")
 print("TOOL CALL RAW:", tool_call)  # Debug print
+print(json.dumps(response, indent=2))  # View all keys and content
 
 if tool_call:
     tool_name = tool_call[0]["name"]
