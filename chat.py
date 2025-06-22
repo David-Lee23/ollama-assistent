@@ -69,6 +69,8 @@ if tool_call:
             messages=messages
         )
 
+        print("TOOL CALL RAW:", tool_call)
+
         print("\n🤖:", follow_up["message"]["content"])
     else:
         print("🚫 Unsupported tool requested:", tool_name)
