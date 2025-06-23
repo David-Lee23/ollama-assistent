@@ -5,8 +5,8 @@ import requests
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Force reload environment variables to avoid caching issues
+load_dotenv(override=True)
 
 # Load your token and base URL from environment variables or hardcode here (for dev)
 CANVAS_TOKEN = os.environ.get("CANVAS_API_TOKEN")
