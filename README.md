@@ -26,6 +26,24 @@
 4. **Manual Memory Search** - Natural language search through conversation history
 5. **Tool-based Function Calling** - Integration with Canvas API through function calls
 6. **Interactive Chat Loop** - Timeout-based interaction with user-friendly prompts
+7. **Modern Web Interface** - Flask-based responsive web dashboard
+
+### 🌐 **New: Web Interface**
+
+**Modern Dashboard Features:**
+- **Chat-Centered Design**: Primary conversation interface with real-time messaging
+- **Memory & Search Panel**: Visual memory status, search functionality, and conversation history
+- **Canvas Tools Panel**: Quick access buttons for assignments, announcements, calendar, and courses
+- **System Panel**: Memory management, status monitoring, and data export
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Real-time Updates**: Live memory count, status indicators, and notifications
+
+**UI Components:**
+- Split-view layout with chat panel and collapsible side panels
+- Modern card-based design with clean typography
+- Loading states and error handling
+- Toast notifications for user feedback
+- Keyboard shortcuts and accessibility features
 
 ### 🧠 Memory System Features:
 - **Persistent Conversation History**: All interactions stored in SQLite database
@@ -77,44 +95,98 @@ Agent: Based on our previous discussion about your Python web scraping project f
 ```
 
 ### 📁 File Structure:
-- `main_agent.py` - Main application loop with memory status display and commands
+- `main_agent.py` - Main CLI application loop with memory status display and commands
+- `app.py` - Flask web application with REST API endpoints
+- `start_web.py` - Web interface startup script
 - `chat_tools.py` - Chat handling with Canvas tools, autonomous & manual memory search
 - `canvas_tools.py` - Canvas LMS API integration
 - `memory.py` - SQLite-based conversation memory system with search capabilities
 - `utils.py` - Utility functions for user input and notifications
 - `agent_memory.db` - SQLite database storing conversation history
+- `templates/` - HTML templates for web interface
+- `static/` - CSS and JavaScript files for web interface
 
 ### 🚀 Usage:
+
+**Web Interface (Recommended):**
+```bash
+python start_web.py
+# Opens web dashboard at http://localhost:5000
+```
+
+**Command Line Interface:**
 ```bash
 python main_agent.py
 ```
 
+**Direct Flask App:**
+```bash
+python app.py
+```
+
 The agent will show memory status on startup and maintain conversation context across sessions.
 
+### 🌐 **Web Interface Screenshots:**
+
+**Main Dashboard:**
+- Split-view layout with chat on left, tools on right
+- Real-time conversation with message history
+- Memory search and Canvas tools in side panels
+- Responsive design for mobile and desktop
+
+**Key Features:**
+- 💬 **Chat Interface**: Send messages, view responses, see typing indicators
+- 🧠 **Memory Panel**: Search conversations, view memory stats, clear history
+- 🎓 **Canvas Panel**: Quick access to assignments, announcements, calendar
+- ⚙️ **System Panel**: Status monitoring, memory management, data export
+- 📱 **Mobile Ready**: Collapsible panels and responsive layout
+
 ### 🔧 Available Commands:
+
+**Web Interface:**
+- Interactive chat with real-time responses
+- Memory search through dedicated search box
+- Canvas tool buttons for quick data access
+- Clear memory and export data buttons
+
+**CLI Interface:**
 - **Memory Management**: `memory`, `memory status`, `clear memory`
 - **Manual Memory Search**: Natural language queries or `search: <term>`
 - **Help**: `help` - Show all available commands
 - **Exit**: `quit`, `exit`, `bye`
 
 ### 🛠️ Technical Implementation:
+- **Flask Backend**: REST API with endpoints for chat, memory, and Canvas tools
+- **Modern Frontend**: HTML5, CSS3, JavaScript with responsive design
+- **Real-time Communication**: AJAX requests with loading states and error handling
 - **search_memory Tool**: Added to TOOLS array for LLM function calling
 - **Enhanced System Prompt**: Encourages proactive memory usage
 - **Dual Search Modes**: Autonomous (LLM-driven) + Manual (rule-based fallback)
 - **Optimized Formatting**: Different result formats for LLM vs human consumption
 - **Context Management**: Reduced recent history to 6 messages to make room for memory results
 
+### 🔌 **API Endpoints:**
+- `POST /api/chat` - Send message to assistant
+- `POST /api/memory/search` - Search conversation history
+- `GET /api/memory/status` - Get memory statistics
+- `POST /api/memory/clear` - Clear all memory
+- `GET /api/canvas/assignments` - Get Canvas assignments
+- `GET /api/canvas/announcements` - Get Canvas announcements
+- `GET /api/canvas/events` - Get calendar events
+- `GET /api/canvas/courses` - Get course list
+
 # 🚀 Post-MVP Feature Ideas:
 # 1. ✅ Long-term memory (semantic) - **IMPLEMENTED with SQLite + Autonomous Search**
-# 2. User model / learning preferences
-# 3. Subject-aware context switching
-# 4. Time-aware scheduling (with calendar integration)
-# 5. Self-assessment engine (quizzing, reflection)
-# 6. CLI or system tool control (local code helper)
-# 7. File awareness (upload docs, ask questions)
-# 8. Multimodal interface (voice + text)
-# 9. Transparent logic/debug output
-# 10. Self-auditing agent loops
+# 2. ✅ Modern Web Interface - **IMPLEMENTED with Flask + Responsive Design**
+# 3. User model / learning preferences
+# 4. Subject-aware context switching
+# 5. Time-aware scheduling (with calendar integration)
+# 6. Self-assessment engine (quizzing, reflection)
+# 7. CLI or system tool control (local code helper)
+# 8. File awareness (upload docs, ask questions)
+# 9. Multimodal interface (voice + text)
+# 10. Transparent logic/debug output
+# 11. Self-auditing agent loops
 
 # 🎯 Target Users:
 # - College student (you)
@@ -125,4 +197,5 @@ The agent will show memory status on startup and maintain conversation context a
 # - ✅ Memory system with SQLite conversation history
 # - ✅ Autonomous memory search (LLM-driven) + manual search
 # - ✅ Tool-based function calling for Canvas data
+# - ✅ Modern web interface with responsive design
 # - 🔄 Ready for advanced features and improvements
