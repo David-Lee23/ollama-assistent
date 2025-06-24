@@ -10,6 +10,8 @@ def main():
     message_count = get_message_count()
     print("📚 Student Assistant Agent is running. Type your question or Ctrl+C to stop.")
     print("💡 Press Enter without typing anything to check for updates, or type 'quit' to exit.")
+    print("🧠 The assistant automatically searches memory when context is needed!")
+    print("🔍 Or try: 'What did I say about...' or 'Did I mention...' for manual search")
     
     if message_count > 0:
         print(f"🧠 Memory: {message_count} messages stored")
@@ -49,6 +51,19 @@ def main():
                     print(f"📊 {summary}")
                 else:
                     print("📊 No recent conversations found")
+                continue
+            
+            if user_input.lower() == 'help':
+                print("🔧 Available Commands:")
+                print("  • memory / memory status - View memory statistics")
+                print("  • clear memory - Reset conversation history")
+                print("  • help - Show this help message")
+                print("  • quit / exit / bye - Stop the agent")
+                print()
+                print("🧠 Memory Features:")
+                print("  • Autonomous: Assistant automatically searches memory when needed")
+                print("  • Manual: 'What did I say about...' or 'Did I mention...'")
+                print("  • Direct: 'search: <term>' for specific searches")
                 continue
                 
             if user_input:  # Non-empty input

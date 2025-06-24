@@ -63,6 +63,47 @@ def get_message_count() -> int:
         cursor = conn.execute("SELECT COUNT(*) FROM messages")
         return cursor.fetchone()[0]
 
+def search_memory(term: str, limit: int = 5) -> List[Tuple[str, str, str]]:
+    """Search memory for user or assistant messages containing a keyword.
+    
+    Args:
+        term: The search term to look for in message content
+        limit: Maximum number of results to return
+        
+    Returns:
+        List of tuples containing (role, content, timestamp) for matching messages
+    """
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        cursor = conn.execute(
+            "SELECT role, content, timestamp FROM messages WHERE content LIKE ? ORDER BY timestamp DESC LIMIT ?",
+            (f"%{term}%", limit)
+        )
+        return cursor.fetchall()
+
+def search_memory_by_role(term: str, role: str = None, limit: int = 5) -> List[Tuple[str, str, str]]:
+    """Search memory for messages containing a keyword, optionally filtered by role.
+    
+    Args:
+        term: The search term to look for in message content
+        role: Optional role filter ('user' or 'assistant')
+        limit: Maximum number of results to return
+        
+    Returns:
+        List of tuples containing (role, content, timestamp) for matching messages
+    """
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        if role:
+            cursor = conn.execute(
+                "SELECT role, content, timestamp FROM messages WHERE content LIKE ? AND role = ? ORDER BY timestamp DESC LIMIT ?",
+                (f"%{term}%", role, limit)
+            )
+        else:
+            cursor = conn.execute(
+                "SELECT role, content, timestamp FROM messages WHERE content LIKE ? ORDER BY timestamp DESC LIMIT ?",
+                (f"%{term}%", limit)
+            )
+        return cursor.fetchall()
+
 def get_conversation_summary(days: int = 7) -> Optional[str]:
     """Get a summary of conversations from the last N days.
     
