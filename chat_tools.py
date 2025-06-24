@@ -2,6 +2,7 @@
 
 from ollama import chat
 from canvas_tools import get_assignments, get_announcements, get_calendar_events, get_courses
+from memory import log_message, get_conversation_messages
 import json
 from datetime import datetime
 
@@ -63,8 +64,15 @@ TOOLS = [  # same tool schema from chat.py
 
 
 def run_chat_message(message: str) -> str:
+    # Log the user message first
+    log_message("user", message)
+    
     today_str = datetime.now().strftime("%B %d, %Y")
 
+    # Get recent conversation history (last 8 messages to keep context manageable)
+    recent_history = get_conversation_messages(limit=8)
+    
+    # Build messages array starting with system prompt
     messages = [
         {
             "role": "system",
@@ -72,21 +80,29 @@ def run_chat_message(message: str) -> str:
                 f"You are an AI assistant with access to Canvas LMS tools. "
                 f"The current date is {today_str}. "
                 "When users ask about assignments, homework, announcements, calendar events, or courses, "
-                "use the appropriate tools to get real data. Be helpful and conversational in your responses."
+                "use the appropriate tools to get real data. Be helpful and conversational in your responses. "
+                "You have access to conversation history to maintain context across interactions."
             )
-        },
-        {
-            "role": "user",
-            "content": message
         }
     ]
-
+    
+    # Add recent conversation history
+    messages.extend(recent_history)
+    
+    # Add the current user message (it's already in history, but we need it for the current context)
+    messages.append({
+        "role": "user",
+        "content": message
+    })
 
     response = chat(model="qwen3:4b", messages=messages, tools=TOOLS)
     tool_calls = getattr(response.message, "tool_calls", None)
 
     if not tool_calls:
-        return response.message.content
+        # Log assistant response and return
+        assistant_response = response.message.content
+        log_message("assistant", assistant_response)
+        return assistant_response
 
     results = []
     for tool_call in tool_calls:
@@ -112,4 +128,9 @@ def run_chat_message(message: str) -> str:
     messages.extend(results)
 
     follow_up = chat(model="qwen3:4b", messages=messages)
-    return follow_up.message.content
+    
+    # Log the final assistant response
+    assistant_response = follow_up.message.content
+    log_message("assistant", assistant_response)
+    
+    return assistant_response

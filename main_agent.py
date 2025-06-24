@@ -3,10 +3,23 @@
 import time
 from chat_tools import run_chat_message
 from utils import get_user_input, notify_user
+from memory import get_message_count, clear_history, get_conversation_summary
 
 def main():
+    # Show memory status on startup
+    message_count = get_message_count()
     print("📚 Student Assistant Agent is running. Type your question or Ctrl+C to stop.")
     print("💡 Press Enter without typing anything to check for updates, or type 'quit' to exit.")
+    
+    if message_count > 0:
+        print(f"🧠 Memory: {message_count} messages stored")
+        summary = get_conversation_summary()
+        if summary:
+            print(f"📊 {summary}")
+    else:
+        print("🧠 Memory: Starting fresh (no previous conversations)")
+    
+    print()  # Add blank line for readability
     
     while True:
         try:
@@ -21,6 +34,22 @@ def main():
             if user_input.lower() in ['quit', 'exit', 'bye']:
                 print("👋 Goodbye!")
                 break
+            
+            # Handle memory commands
+            if user_input.lower() == 'clear memory':
+                clear_history()
+                print("🧠 Memory cleared! Starting fresh.")
+                continue
+            
+            if user_input.lower() in ['memory status', 'memory']:
+                count = get_message_count()
+                summary = get_conversation_summary()
+                print(f"🧠 Memory Status: {count} messages stored")
+                if summary:
+                    print(f"📊 {summary}")
+                else:
+                    print("📊 No recent conversations found")
+                continue
                 
             if user_input:  # Non-empty input
                 response = run_chat_message(user_input)
