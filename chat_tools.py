@@ -3,6 +3,7 @@
 from ollama import chat
 from canvas_tools import get_assignments, get_announcements, get_calendar_events, get_courses
 import json
+from datetime import datetime
 
 TOOLS = [  # same tool schema from chat.py
     {
@@ -60,17 +61,26 @@ TOOLS = [  # same tool schema from chat.py
     }
 ]
 
+
 def run_chat_message(message: str) -> str:
+    today_str = datetime.now().strftime("%B %d, %Y")
+
     messages = [
         {
             "role": "system",
-            "content": "You are an AI assistant with access to Canvas LMS tools."
+            "content": (
+                f"You are an AI assistant with access to Canvas LMS tools. "
+                f"The current date is {today_str}. "
+                "When users ask about assignments, homework, announcements, calendar events, or courses, "
+                "use the appropriate tools to get real data. Be helpful and conversational in your responses."
+            )
         },
         {
             "role": "user",
             "content": message
         }
     ]
+
 
     response = chat(model="qwen3:8b", messages=messages, tools=TOOLS)
     tool_calls = getattr(response.message, "tool_calls", None)
