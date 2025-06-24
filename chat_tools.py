@@ -82,7 +82,7 @@ def run_chat_message(message: str) -> str:
     ]
 
 
-    response = chat(model="qwen3:8b", messages=messages, tools=TOOLS)
+    response = chat(model="mistral:7b-instruct-q4_K_M", messages=messages, tools=TOOLS)
     tool_calls = getattr(response.message, "tool_calls", None)
 
     if not tool_calls:
@@ -111,5 +111,5 @@ def run_chat_message(message: str) -> str:
     messages.append({"role": "assistant", "tool_calls": tool_calls})
     messages.extend(results)
 
-    follow_up = chat(model="qwen3:8b", messages=messages)
+    follow_up = chat(model="mistral:7b-instruct-q4_K_M", messages=messages)
     return follow_up.message.content
