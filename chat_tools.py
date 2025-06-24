@@ -2,7 +2,7 @@
 
 from ollama import chat
 from canvas_tools import get_assignments, get_announcements, get_calendar_events, get_courses
-from memory import log_message, get_conversation_messages, search_memory
+from memory import log_message, get_conversation_messages, search_memory, get_project
 import json
 from datetime import datetime
 from typing import Optional
@@ -204,29 +204,36 @@ def format_memory_results_for_llm(results: list) -> str:
     
     return "\n".join(formatted_results)
 
-def run_chat_message(message: str) -> str:
+def run_chat_message(message: str, project_id: int = None) -> str:
     # Log the user message first
-    log_message("user", message)
+    log_message("user", message, project_id)
     
     # Check if this is a manual memory search query first (fallback behavior)
     manual_search_term = detect_memory_query(message)
     if manual_search_term:
-        results = search_memory(manual_search_term)
+        results = search_memory(manual_search_term, project_id=project_id)
         reply = format_memory_results(results, manual_search_term)
-        log_message("assistant", reply)
+        log_message("assistant", reply, project_id)
         return reply
     
     today_str = datetime.now().strftime("%B %d, %Y")
 
     # Get recent conversation history (last 6 messages to leave room for memory search results)
-    recent_history = get_conversation_messages(limit=6)
+    recent_history = get_conversation_messages(limit=6, project_id=project_id)
+    
+    # Get project-specific system prompt
+    project_system_prompt = "You are an AI assistant with access to Canvas LMS tools and conversation memory."
+    if project_id:
+        project = get_project(project_id)
+        if project and project.get('system_prompt'):
+            project_system_prompt = project['system_prompt']
     
     # Build messages array starting with enhanced system prompt
     messages = [
         {
             "role": "system",
             "content": (
-                f"You are an AI assistant with access to Canvas LMS tools and conversation memory. "
+                f"{project_system_prompt} "
                 f"The current date is {today_str}. "
                 "When users ask about assignments, homework, announcements, calendar events, or courses, "
                 "use the appropriate Canvas tools to get real data. "
@@ -254,7 +261,7 @@ def run_chat_message(message: str) -> str:
     if not tool_calls:
         # Log assistant response and return
         assistant_response = response.message.content
-        log_message("assistant", assistant_response)
+        log_message("assistant", assistant_response, project_id)
         return assistant_response
 
     results = []
@@ -273,9 +280,9 @@ def run_chat_message(message: str) -> str:
         elif tool_name == "get_courses":
             result = get_courses()
         elif tool_name == "search_memory":
-            # Handle autonomous memory search
+            # Handle autonomous memory search (project-scoped)
             search_term = tool_args.get("term", "")
-            memory_results = search_memory(search_term, limit=5)
+            memory_results = search_memory(search_term, limit=5, project_id=project_id)
             result = format_memory_results_for_llm(memory_results)
         else:
             result = f"Unknown tool: {tool_name}"
@@ -289,6 +296,6 @@ def run_chat_message(message: str) -> str:
     
     # Log the final assistant response
     assistant_response = follow_up.message.content
-    log_message("assistant", assistant_response)
+    log_message("assistant", assistant_response, project_id)
     
     return assistant_response

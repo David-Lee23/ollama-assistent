@@ -10,7 +10,8 @@ import os
 import json
 from memory import (
     log_message, get_conversation_messages, search_memory, 
-    get_message_count, clear_history, get_conversation_summary
+    get_message_count, clear_history, get_conversation_summary,
+    create_project, get_projects, get_project, update_project, delete_project
 )
 from chat_tools import run_chat_message
 from canvas_tools import get_assignments, get_announcements, get_calendar_events, get_courses
@@ -23,10 +24,12 @@ def index():
     """Main dashboard page"""
     message_count = get_message_count()
     summary = get_conversation_summary()
+    projects = get_projects()
     
     return render_template('dashboard.html', 
                          message_count=message_count,
-                         summary=summary)
+                         summary=summary,
+                         projects=projects)
 
 @app.route('/api/chat', methods=['POST'])
 def api_chat():
@@ -34,18 +37,114 @@ def api_chat():
     try:
         data = request.get_json()
         message = data.get('message', '').strip()
+        project_id = data.get('project_id')
         
         if not message:
             return jsonify({'error': 'Message cannot be empty'}), 400
         
         # Process the message through the agent
-        response = run_chat_message(message)
+        response = run_chat_message(message, project_id)
         
         # Return the response
         return jsonify({
             'response': response,
             'timestamp': datetime.now().isoformat(),
-            'message_count': get_message_count()
+            'message_count': get_message_count(project_id),
+            'project_id': project_id
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Project Management Endpoints
+@app.route('/api/projects', methods=['GET'])
+def api_get_projects():
+    """Get all projects"""
+    try:
+        projects = get_projects()
+        return jsonify({'projects': projects})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects', methods=['POST'])
+def api_create_project():
+    """Create a new project"""
+    try:
+        data = request.get_json()
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        system_prompt = data.get('system_prompt', '').strip()
+        
+        if not name:
+            return jsonify({'error': 'Project name cannot be empty'}), 400
+        
+        project_id = create_project(name, description, system_prompt)
+        project = get_project(project_id)
+        
+        return jsonify({
+            'success': True,
+            'project': project,
+            'message': f'Project "{name}" created successfully'
+        }), 201
+        
+    except Exception as e:
+        if 'UNIQUE constraint failed' in str(e):
+            return jsonify({'error': 'A project with this name already exists'}), 400
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<int:project_id>', methods=['GET'])
+def api_get_project(project_id):
+    """Get a specific project"""
+    try:
+        project = get_project(project_id)
+        if not project:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        return jsonify({'project': project})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<int:project_id>', methods=['PUT'])
+def api_update_project(project_id):
+    """Update a project"""
+    try:
+        data = request.get_json()
+        name = data.get('name')
+        description = data.get('description')
+        system_prompt = data.get('system_prompt')
+        
+        success = update_project(project_id, name, description, system_prompt)
+        if not success:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        project = get_project(project_id)
+        return jsonify({
+            'success': True,
+            'project': project,
+            'message': 'Project updated successfully'
+        })
+        
+    except Exception as e:
+        if 'UNIQUE constraint failed' in str(e):
+            return jsonify({'error': 'A project with this name already exists'}), 400
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<int:project_id>', methods=['DELETE'])
+def api_delete_project(project_id):
+    """Delete a project"""
+    try:
+        # Don't allow deleting the default project (id=1)
+        if project_id == 1:
+            return jsonify({'error': 'Cannot delete the default project'}), 400
+        
+        success = delete_project(project_id)
+        if not success:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'message': 'Project deleted successfully'
         })
         
     except Exception as e:
@@ -58,11 +157,12 @@ def api_memory_search():
         data = request.get_json()
         term = data.get('term', '').strip()
         limit = data.get('limit', 10)
+        project_id = data.get('project_id')
         
         if not term:
             return jsonify({'error': 'Search term cannot be empty'}), 400
         
-        results = search_memory(term, limit=limit)
+        results = search_memory(term, limit=limit, project_id=project_id)
         
         # Format results for JSON response
         formatted_results = []
@@ -76,7 +176,8 @@ def api_memory_search():
         return jsonify({
             'results': formatted_results,
             'count': len(formatted_results),
-            'term': term
+            'term': term,
+            'project_id': project_id
         })
         
     except Exception as e:
@@ -86,14 +187,17 @@ def api_memory_search():
 def api_memory_status():
     """Get memory statistics and summary"""
     try:
-        message_count = get_message_count()
-        summary = get_conversation_summary()
-        recent_messages = get_conversation_messages(limit=5)
+        project_id = request.args.get('project_id', type=int)
+        
+        message_count = get_message_count(project_id)
+        summary = get_conversation_summary(project_id=project_id)
+        recent_messages = get_conversation_messages(limit=5, project_id=project_id)
         
         return jsonify({
             'message_count': message_count,
             'summary': summary,
-            'recent_messages': recent_messages
+            'recent_messages': recent_messages,
+            'project_id': project_id
         })
         
     except Exception as e:
@@ -103,11 +207,16 @@ def api_memory_status():
 def api_memory_clear():
     """Clear all memory"""
     try:
-        clear_history()
+        data = request.get_json() or {}
+        project_id = data.get('project_id')
+        
+        clear_history(project_id)
+        
         return jsonify({
             'success': True,
             'message': 'Memory cleared successfully',
-            'message_count': 0
+            'message_count': 0,
+            'project_id': project_id
         })
         
     except Exception as e:

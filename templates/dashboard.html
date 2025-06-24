@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>�� Student Assistant</title>
+    <title>🧠 Student Assistant</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -27,15 +27,44 @@
                     </span>
                 </div>
             </div>
+            <div class="header-right">
+                <div class="project-selector">
+                    <label for="project-select">Project:</label>
+                    <select id="project-select" class="project-dropdown">
+                        {% for project in projects %}
+                        <option value="{{ project.id }}" 
+                                data-description="{{ project.description }}"
+                                data-system-prompt="{{ project.system_prompt }}">
+                            {{ project.name }} ({{ project.message_count }} msgs)
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <button id="new-project-btn" class="btn-small">
+                        <i class="fas fa-plus"></i> New Project
+                    </button>
+                </div>
+            </div>
         </header>
 
         <div class="main-content">
             <div class="chat-panel">
                 <div class="chat-header">
                     <h3><i class="fas fa-comments"></i> Conversation</h3>
-                    <button class="btn-small" id="clear-chat-btn">
-                        <i class="fas fa-trash"></i> Clear Memory
-                    </button>
+                    <div class="chat-controls">
+                        <button class="btn-small" id="project-settings-btn">
+                            <i class="fas fa-cog"></i> Project Settings
+                        </button>
+                        <button class="btn-small" id="clear-chat-btn">
+                            <i class="fas fa-trash"></i> Clear Memory
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="project-info" id="project-info">
+                    <div class="project-description">
+                        <i class="fas fa-info-circle"></i>
+                        <span id="project-description-text">Select a project to see its description</span>
+                    </div>
                 </div>
                 
                 <div class="chat-messages" id="chat-messages">
@@ -46,7 +75,7 @@
                         <div class="message-content">
                             <div class="message-text">
                                 <h4>Welcome to your Student Assistant! 🎓</h4>
-                                <p>I can help you with Canvas integration, memory search, and study support. Just start typing below!</p>
+                                <p>I can help you with Canvas integration, memory search, and study support. Select a project above and start typing below!</p>
                             </div>
                             <div class="message-time">Just now</div>
                         </div>
@@ -97,6 +126,84 @@
                         <div id="canvas-results" class="canvas-results"></div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Project Modal -->
+    <div class="modal-overlay" id="new-project-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-plus"></i> Create New Project</h3>
+                <button class="modal-close" id="close-new-project-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="new-project-form">
+                    <div class="form-group">
+                        <label for="project-name">Project Name *</label>
+                        <input type="text" id="project-name" required maxlength="100" 
+                               placeholder="e.g., Calculus Study Group, CS Final Project">
+                    </div>
+                    <div class="form-group">
+                        <label for="project-description">Description</label>
+                        <textarea id="project-description" rows="3" maxlength="500"
+                                  placeholder="Brief description of what this project is about..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="project-system-prompt">AI Assistant Style/Instructions</label>
+                        <textarea id="project-system-prompt" rows="4" maxlength="1000"
+                                  placeholder="How should the AI behave in this project? e.g., 'You are a calculus tutor who explains concepts step by step' or 'You are a coding mentor who helps debug Python projects'"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="cancel-new-project">Cancel</button>
+                <button type="submit" form="new-project-form" class="btn-primary" id="create-project-btn">
+                    <i class="fas fa-plus"></i> Create Project
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Settings Modal -->
+    <div class="modal-overlay" id="project-settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-cog"></i> Project Settings</h3>
+                <button class="modal-close" id="close-project-settings-modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="project-settings-form">
+                    <div class="form-group">
+                        <label for="edit-project-name">Project Name *</label>
+                        <input type="text" id="edit-project-name" required maxlength="100">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-project-description">Description</label>
+                        <textarea id="edit-project-description" rows="3" maxlength="500"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-project-system-prompt">AI Assistant Style/Instructions</label>
+                        <textarea id="edit-project-system-prompt" rows="4" maxlength="1000"></textarea>
+                    </div>
+                </form>
+                <div class="danger-zone">
+                    <h4>Danger Zone</h4>
+                    <p>These actions cannot be undone.</p>
+                    <button type="button" class="btn-danger" id="delete-project-btn">
+                        <i class="fas fa-trash"></i> Delete Project & All Messages
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="cancel-project-settings">Cancel</button>
+                <button type="submit" form="project-settings-form" class="btn-primary" id="save-project-btn">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
             </div>
         </div>
     </div>
