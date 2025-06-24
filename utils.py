@@ -3,16 +3,17 @@
 import sys
 import select
 
-def get_user_input(timeout=30):
+def get_user_input(timeout=60):
     """Get user input with timeout support"""
     try:
         print("👤 You: ", end="", flush=True)
         
         # Check if input is available within timeout
         if sys.stdin in select.select([sys.stdin], [], [], timeout)[0]:
-            return input().strip()
+            line = input().strip()
+            return line
         else:
-            print()  # New line after timeout
+            print("⏰ (timeout)")  # Clear indication of timeout
             return None  # Timeout occurred
     except EOFError:
         return None
@@ -21,3 +22,4 @@ def get_user_input(timeout=30):
 
 def notify_user(message: str):
     print(f"🤖 Assistant: {message}")
+    print()  # Add blank line for better readability
