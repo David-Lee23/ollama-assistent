@@ -51,6 +51,9 @@
                 <div class="chat-header">
                     <h3><i class="fas fa-comments"></i> Conversation</h3>
                     <div class="chat-controls">
+                        <button class="btn-small" id="generate-summary-btn">
+                            <i class="fas fa-brain"></i> Generate Summary
+                        </button>
                         <button class="btn-small" id="project-settings-btn">
                             <i class="fas fa-cog"></i> Project Settings
                         </button>
@@ -64,6 +67,11 @@
                     <div class="project-description">
                         <i class="fas fa-info-circle"></i>
                         <span id="project-description-text">Select a project to see its description</span>
+                    </div>
+                    <div class="project-summary" id="project-summary" style="display: none;">
+                        <i class="fas fa-brain"></i>
+                        <strong>Project Summary:</strong>
+                        <div id="project-summary-text">No summary available</div>
                     </div>
                 </div>
                 

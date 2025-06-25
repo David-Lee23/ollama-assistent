@@ -480,6 +480,32 @@ body {
     color: var(--primary-color);
 }
 
+.project-summary {
+    background: var(--bg-secondary);
+    padding: var(--spacing-md);
+    margin-top: var(--spacing-sm);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-light);
+}
+
+.project-summary i {
+    color: var(--primary-color);
+    margin-right: var(--spacing-sm);
+}
+
+.project-summary strong {
+    color: var(--text-primary);
+}
+
+#project-summary-text {
+    margin-top: var(--spacing-sm);
+    padding-left: 1.5rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    white-space: pre-line;
+}
+
 /* Modal Styles */
 .modal-overlay {
     position: fixed;

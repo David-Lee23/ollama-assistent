@@ -2,7 +2,10 @@
 
 from ollama import chat
 from canvas_tools import get_assignments, get_announcements, get_calendar_events, get_courses
-from memory import log_message, get_conversation_messages, search_memory, get_project
+from memory import (
+    log_message, get_conversation_messages, search_memory, get_project,
+    get_project_summary, generate_project_summary, should_update_summary
+)
 import json
 from datetime import datetime
 from typing import Optional
@@ -208,6 +211,11 @@ def run_chat_message(message: str, project_id: int = None) -> str:
     # Log the user message first
     log_message("user", message, project_id)
     
+    # Check if we should generate/update project summary (periodic summarization)
+    if project_id and should_update_summary(project_id):
+        print("🧠 Updating project summary...")
+        generate_project_summary(project_id)
+    
     # Check if this is a manual memory search query first (fallback behavior)
     manual_search_term = detect_memory_query(message)
     if manual_search_term:
@@ -245,6 +253,15 @@ def run_chat_message(message: str, project_id: int = None) -> str:
             )
         }
     ]
+    
+    # Inject project summary if available (context injection)
+    if project_id:
+        summary = get_project_summary(project_id)
+        if summary:
+            messages.append({
+                "role": "system",
+                "content": f"🧠 Project Summary: {summary}"
+            })
     
     # Add recent conversation history
     messages.extend(recent_history)

@@ -11,7 +11,8 @@ import json
 from memory import (
     log_message, get_conversation_messages, search_memory, 
     get_message_count, clear_history, get_conversation_summary,
-    create_project, get_projects, get_project, update_project, delete_project
+    create_project, get_projects, get_project, update_project, delete_project,
+    get_project_summary, generate_project_summary
 )
 from chat_tools import run_chat_message
 from canvas_tools import get_assignments, get_announcements, get_calendar_events, get_courses
@@ -145,6 +146,50 @@ def api_delete_project(project_id):
         return jsonify({
             'success': True,
             'message': 'Project deleted successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<int:project_id>/summary', methods=['GET'])
+def api_get_project_summary(project_id):
+    """Get a project's summary"""
+    try:
+        project = get_project(project_id)
+        if not project:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        summary = get_project_summary(project_id)
+        return jsonify({
+            'project_id': project_id,
+            'summary': summary
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/projects/<int:project_id>/summary', methods=['POST'])
+def api_generate_project_summary(project_id):
+    """Generate a new summary for a project"""
+    try:
+        project = get_project(project_id)
+        if not project:
+            return jsonify({'error': 'Project not found'}), 404
+        
+        # Check if project has enough messages
+        message_count = get_message_count(project_id)
+        if message_count < 5:
+            return jsonify({'error': 'Project needs at least 5 messages to generate a summary'}), 400
+        
+        summary = generate_project_summary(project_id)
+        if not summary:
+            return jsonify({'error': 'Failed to generate summary'}), 500
+        
+        return jsonify({
+            'success': True,
+            'project_id': project_id,
+            'summary': summary,
+            'message': 'Project summary generated successfully'
         })
         
     except Exception as e:

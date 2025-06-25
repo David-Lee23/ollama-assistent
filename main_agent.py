@@ -3,7 +3,10 @@
 import time
 from chat_tools import run_chat_message
 from utils import get_user_input, notify_user
-from memory import get_message_count, clear_history, get_conversation_summary
+from memory import (
+    get_message_count, clear_history, get_conversation_summary,
+    generate_project_summary, get_projects, get_project_summary
+)
 
 def main():
     # Show memory status on startup
@@ -57,6 +60,9 @@ def main():
                 print("🔧 Available Commands:")
                 print("  • memory / memory status - View memory statistics")
                 print("  • clear memory - Reset conversation history")
+                print("  • projects - List all projects")
+                print("  • generate summary - Create project summary")
+                print("  • view summary - Show current project summary")
                 print("  • help - Show this help message")
                 print("  • quit / exit / bye - Stop the agent")
                 print()
@@ -64,6 +70,40 @@ def main():
                 print("  • Autonomous: Assistant automatically searches memory when needed")
                 print("  • Manual: 'What did I say about...' or 'Did I mention...'")
                 print("  • Direct: 'search: <term>' for specific searches")
+                print("  • Per-Project: Summaries provide context awareness")
+                continue
+            
+            if user_input.lower() == 'projects':
+                projects = get_projects()
+                print("📁 Available Projects:")
+                for project in projects:
+                    summary_indicator = "📝" if project.get('summary') else "📄"
+                    print(f"  {summary_indicator} {project['name']} (ID: {project['id']}, {project['message_count']} messages)")
+                continue
+            
+            if user_input.lower() == 'generate summary':
+                # For CLI, use default project (ID 1)
+                project_id = 1
+                message_count = get_message_count(project_id)
+                if message_count < 5:
+                    print("⚠️ Need at least 5 messages to generate a summary")
+                else:
+                    print("🧠 Generating project summary...")
+                    summary = generate_project_summary(project_id)
+                    if summary:
+                        print(f"✅ Summary generated:\n{summary}")
+                    else:
+                        print("❌ Failed to generate summary")
+                continue
+            
+            if user_input.lower() == 'view summary':
+                # For CLI, use default project (ID 1)
+                project_id = 1
+                summary = get_project_summary(project_id)
+                if summary:
+                    print(f"📋 Current Project Summary:\n{summary}")
+                else:
+                    print("📋 No summary available for this project")
                 continue
                 
             if user_input:  # Non-empty input

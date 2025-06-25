@@ -96,7 +96,7 @@ def get_project(project_id: int) -> Optional[Dict]:
         row = cursor.fetchone()
         return dict(row) if row else None
 
-def update_project(project_id: int, name: str = None, description: str = None, system_prompt: str = None) -> bool:
+def update_project(project_id: int, name: str = None, description: str = None, system_prompt: str = None, summary: str = None) -> bool:
     """Update a project.
     
     Args:
@@ -104,6 +104,7 @@ def update_project(project_id: int, name: str = None, description: str = None, s
         name: New name (optional)
         description: New description (optional)
         system_prompt: New system prompt (optional)
+        summary: New summary (optional)
         
     Returns:
         True if project was updated, False if not found
@@ -120,6 +121,9 @@ def update_project(project_id: int, name: str = None, description: str = None, s
     if system_prompt is not None:
         updates.append("system_prompt = ?")
         params.append(system_prompt)
+    if summary is not None:
+        updates.append("summary = ?")
+        params.append(summary)
     
     if not updates:
         return False
@@ -329,6 +333,122 @@ def get_conversation_summary(days: int = 7, project_id: int = None) -> Optional[
     user_messages = len([m for m in messages if m[0] == 'user'])
     
     return f"Last {days} days: {total_messages} messages ({user_messages} from user)"
+
+def update_project_summary(project_id: int, summary: str) -> bool:
+    """Update the summary for a specific project.
+    
+    Args:
+        project_id: Project ID
+        summary: The new summary text
+        
+    Returns:
+        True if project summary was updated, False if project not found
+    """
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        cursor = conn.execute(
+            "UPDATE projects SET summary = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (summary, project_id)
+        )
+        return cursor.rowcount > 0
+
+def get_project_summary(project_id: int) -> Optional[str]:
+    """Get the summary for a specific project.
+    
+    Args:
+        project_id: Project ID
+        
+    Returns:
+        Project summary or None if not found or no summary exists
+    """
+    with sqlite3.connect(DATABASE_PATH) as conn:
+        cursor = conn.execute("SELECT summary FROM projects WHERE id = ?", (project_id,))
+        result = cursor.fetchone()
+        return result[0] if result and result[0] else None
+
+def generate_project_summary(project_id: int, limit: int = 50) -> Optional[str]:
+    """Generate a new summary for a project using recent conversation history.
+    
+    Args:
+        project_id: Project ID
+        limit: Number of recent messages to include in summarization
+        
+    Returns:
+        Generated summary or None if no messages found or generation failed
+    """
+    # Import here to avoid circular dependency
+    from ollama import chat
+    
+    # Get recent conversation messages for this project
+    messages = get_conversation_messages(limit=limit, project_id=project_id)
+    
+    if not messages:
+        return None
+    
+    # Get project info for context
+    project = get_project(project_id)
+    project_name = project.get('name', 'Unknown Project') if project else 'Unknown Project'
+    
+    # Build summarization prompt
+    summary_prompt = [
+        {
+            "role": "system", 
+            "content": f"You are summarizing the conversation history for the project '{project_name}'. "
+                      "Create a concise 3-5 bullet point summary that captures:\n"
+                      "• Key topics and themes discussed\n"
+                      "• Important decisions or conclusions reached\n"
+                      "• Current project status or progress\n"
+                      "• Any ongoing tasks or next steps\n"
+                      "Keep it brief but informative. Use bullet points starting with '•'."
+        }
+    ]
+    
+    # Add the conversation history
+    summary_prompt.extend(messages)
+    
+    try:
+        # Generate summary using the LLM
+        response = chat(model="qwen3:4b", messages=summary_prompt)
+        summary = response.message.content.strip()
+        
+        # Store the generated summary
+        if summary and update_project_summary(project_id, summary):
+            return summary
+        
+    except Exception as e:
+        print(f"⚠️ Failed to generate project summary: {e}")
+    
+    return None
+
+def should_update_summary(project_id: int, message_threshold: int = 25) -> bool:
+    """Check if a project summary should be updated based on recent activity.
+    
+    Args:
+        project_id: Project ID
+        message_threshold: Number of new messages since last update to trigger summary refresh
+        
+    Returns:
+        True if summary should be updated
+    """
+    # Get project info including when it was last updated
+    project = get_project(project_id)
+    if not project:
+        return False
+    
+    # Get message count for this project
+    message_count = get_message_count(project_id)
+    
+    # If no messages, no need for summary
+    if message_count == 0:
+        return False
+    
+    # If no existing summary, definitely create one (but only if we have enough messages)
+    if not project.get('summary'):
+        return message_count >= 10  # Wait until we have at least 10 messages
+    
+    # Check if enough new messages have been added since last update
+    # This is a simple heuristic - in a more advanced system you could track 
+    # message counts at the time of last summary update
+    return message_count >= message_threshold
 
 # Initialize database on import
 init_database() 

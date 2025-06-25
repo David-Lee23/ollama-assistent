@@ -94,6 +94,11 @@ class StudentAssistant {
             this.deleteProject();
         });
 
+        // Generate summary event
+        document.getElementById('generate-summary-btn').addEventListener('click', () => {
+            this.generateProjectSummary();
+        });
+
         // Close modals on overlay click
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', (e) => {
@@ -132,9 +137,11 @@ class StudentAssistant {
         this.projects.forEach(project => {
             const option = document.createElement('option');
             option.value = project.id;
-            option.textContent = `${project.name} (${project.message_count} msgs)`;
+            const summaryIndicator = project.summary ? '📝' : '📄';
+            option.textContent = `${summaryIndicator} ${project.name} (${project.message_count} msgs)`;
             option.dataset.description = project.description || '';
             option.dataset.systemPrompt = project.system_prompt || '';
+            option.dataset.summary = project.summary || '';
             select.appendChild(option);
         });
         
@@ -151,6 +158,9 @@ class StudentAssistant {
         if (project) {
             const descriptionElement = document.getElementById('project-description-text');
             descriptionElement.textContent = project.description || `Working on ${project.name}`;
+            
+            // Update project summary display
+            this.updateProjectSummaryDisplay(project);
             
             // Update memory count for this project
             this.updateMemoryCount();
@@ -616,6 +626,67 @@ class StudentAssistant {
             toast.classList.remove('show');
             setTimeout(() => document.body.removeChild(toast), 300);
         }, 3000);
+    }
+
+    updateProjectSummaryDisplay(project) {
+        const summaryContainer = document.getElementById('project-summary');
+        const summaryText = document.getElementById('project-summary-text');
+        
+        if (project && project.summary) {
+            summaryText.textContent = project.summary;
+            summaryContainer.style.display = 'block';
+        } else {
+            summaryContainer.style.display = 'none';
+        }
+    }
+
+    async generateProjectSummary() {
+        if (!this.currentProjectId) {
+            this.showToast('Please select a project first', 'error');
+            return;
+        }
+
+        const project = this.projects.find(p => p.id === this.currentProjectId);
+        if (!project) {
+            this.showToast('Project not found', 'error');
+            return;
+        }
+
+        if (project.message_count < 5) {
+            this.showToast('Project needs at least 5 messages to generate a summary', 'error');
+            return;
+        }
+
+        try {
+            this.showLoading();
+            
+            const response = await fetch(`/api/projects/${this.currentProjectId}/summary`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            this.hideLoading();
+
+            if (response.ok) {
+                this.showToast(data.message, 'success');
+                
+                // Update the project in our local data
+                const projectIndex = this.projects.findIndex(p => p.id === this.currentProjectId);
+                if (projectIndex !== -1) {
+                    this.projects[projectIndex].summary = data.summary;
+                    this.updateProjectSummaryDisplay(this.projects[projectIndex]);
+                    this.updateProjectSelector(); // Update the summary indicator
+                }
+            } else {
+                this.showToast(data.error, 'error');
+            }
+        } catch (error) {
+            this.hideLoading();
+            this.showToast(`Failed to generate summary: ${error.message}`, 'error');
+        }
     }
 }
 
