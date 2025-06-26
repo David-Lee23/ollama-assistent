@@ -258,3 +258,76 @@ The agent will show memory status on startup and maintain conversation context a
 # - ✅ Tool-based function calling for Canvas data
 # - ✅ Modern web interface with responsive design and project management
 # - 🔄 Ready for advanced features and improvements
+
+# Ollama Assistant
+
+An AI assistant with Canvas LMS integration, conversation memory, and web search capabilities.
+
+## Features
+
+- **Canvas LMS Integration**: Access assignments, announcements, calendar events, and course information
+- **Conversation Memory**: Persistent memory with smart search and project-based organization
+- **Enhanced Web Search**: Real-time web search with AI-powered webpage content reading and summarization
+- **Project Management**: Organize conversations by projects with automatic summarization
+
+## Setup
+
+1. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Set up environment variables:
+```bash
+# For Canvas LMS integration
+export CANVAS_TOKEN="your_canvas_token"
+export CANVAS_URL="https://your-institution.instructure.com"
+
+# For web search functionality
+export SERPAPI_KEY="your_serpapi_key"
+```
+
+3. Run the application:
+```bash
+python app.py
+```
+
+## Web Search Setup
+
+To enable web search functionality:
+
+1. Sign up for a SerpAPI account at https://serpapi.com/
+2. Get your API key from the dashboard
+3. Set the environment variable:
+   ```bash
+   export SERPAPI_KEY="your_api_key_here"
+   ```
+
+The web search tool will automatically be available to the assistant when the API key is configured.
+
+## Usage
+
+The assistant can:
+- Answer questions about your Canvas courses, assignments, and calendar
+- Search through conversation history when you reference past discussions  
+- Search the web and read webpage content for comprehensive, up-to-date information
+- Intelligently summarize web content while keeping conversation memory clean
+- Maintain context across conversations within projects
+
+Example queries:
+- "What assignments are due this week?"
+- "Search for recent news about artificial intelligence" (now includes full article content!)
+- "Find Python tutorials and summarize the best practices"
+- "What did we discuss about machine learning last time?"
+- "Show me my upcoming calendar events"
+
+## Project Structure
+
+- `app.py` - Main application entry point
+- `chat_tools.py` - Core chat functionality with tool integration
+- `canvas_tools.py` - Canvas LMS API integration
+- `memory.py` - Conversation memory and search functionality
+- `main_agent.py` - Agent coordination logic
+- `start_web.py` - Web interface startup
+- `templates/` - HTML templates for web interface
+- `static/` - CSS and JavaScript assets

@@ -7,8 +7,14 @@ from memory import (
     get_project_summary, generate_project_summary, should_update_summary
 )
 import json
+import os
+import re
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Tuple
+from serpapi import GoogleSearch
 
 TOOLS = [  # same tool schema from chat.py
     {
@@ -78,6 +84,27 @@ TOOLS = [  # same tool schema from chat.py
                     }
                 },
                 "required": ["term"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_web",
+            "description": "Search the web for information. Use this when the user asks a question that requires real-time information or data.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The search query to look for on the web"
+                    },
+                    "location": {
+                        "type": "string",
+                        "description": "Location for localized search results (optional, defaults to 'United States')"
+                    }
+                },
+                "required": ["query"]
             }
         }
     }
@@ -207,6 +234,224 @@ def format_memory_results_for_llm(results: list) -> str:
     
     return "\n".join(formatted_results)
 
+def fetch_webpage_content(url: str, timeout: int = 10) -> str:
+    """Fetch and extract clean text content from a webpage.
+    
+    Args:
+        url: The URL to fetch content from
+        timeout: Request timeout in seconds
+        
+    Returns:
+        Clean text content from the webpage
+    """
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=timeout)
+        response.raise_for_status()
+        
+        # Parse HTML content
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Remove script and style elements
+        for script in soup(["script", "style", "nav", "header", "footer", "aside"]):
+            script.decompose()
+        
+        # Extract text from main content areas
+        main_content = soup.find('main') or soup.find('article') or soup.find('div', class_=re.compile(r'content|main|article'))
+        
+        if main_content:
+            text = main_content.get_text()
+        else:
+            # Fallback to body content
+            text = soup.get_text()
+        
+        # Clean up the text
+        lines = (line.strip() for line in text.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        text = ' '.join(chunk for chunk in chunks if chunk)
+        
+        return text
+        
+    except Exception as e:
+        return f"❌ Could not fetch content from {url}: {str(e)}"
+
+def summarize_content_with_ai(content: str, max_length: int = 500) -> str:
+    """Use Ollama to summarize long content intelligently.
+    
+    Args:
+        content: The content to summarize
+        max_length: Maximum length of the summary
+        
+    Returns:
+        AI-generated summary of the content
+    """
+    try:
+        if len(content) <= max_length:
+            return content
+        
+        # Create a summarization prompt
+        messages = [
+            {
+                "role": "system",
+                "content": f"You are a helpful assistant that creates concise summaries. Summarize the following content in {max_length} characters or less. Focus on the key information and main points."
+            },
+            {
+                "role": "user", 
+                "content": f"Please summarize this content:\n\n{content[:2000]}..."  # Limit input to avoid token limits
+            }
+        ]
+        
+        response = chat(model="qwen3:4b", messages=messages)
+        summary = response.message.content.strip()
+        
+        # Ensure we don't exceed max_length
+        if len(summary) > max_length:
+            summary = summary[:max_length-3] + "..."
+            
+        return summary
+        
+    except Exception as e:
+        # Fallback to simple truncation if AI summarization fails
+        return content[:max_length-3] + "..." if len(content) > max_length else content
+
+def process_webpage_content(url: str, max_chars: int = 800) -> str:
+    """Extract and process webpage content with intelligent summarization.
+    
+    Args:
+        url: URL to process
+        max_chars: Maximum characters for the final content
+        
+    Returns:
+        Processed and summarized content
+    """
+    try:
+        # Fetch the webpage content
+        raw_content = fetch_webpage_content(url)
+        
+        if raw_content.startswith("❌"):
+            return raw_content
+        
+        # Filter out very short content (likely not useful)
+        if len(raw_content.strip()) < 100:
+            return f"📄 Content too brief to summarize from {url}"
+        
+        # Use AI to create intelligent summary
+        summary = summarize_content_with_ai(raw_content, max_chars)
+        
+        return f"📄 {summary}"
+        
+    except Exception as e:
+        return f"❌ Error processing content from {url}: {str(e)}"
+
+def search_web_enhanced(query: str, location: str = "United States", include_content: bool = True) -> Tuple[str, str]:
+    """Enhanced web search with optional webpage content reading.
+    
+    Args:
+        query: The search query
+        location: Location for localized results
+        include_content: Whether to fetch and summarize webpage content
+        
+    Returns:
+        Tuple of (full_response_for_user, condensed_version_for_memory)
+    """
+    try:
+        # Get API key from environment variable
+        api_key = os.getenv('SERPAPI_KEY')
+        if not api_key:
+            error_msg = "❌ Web search unavailable: SERPAPI_KEY environment variable not set"
+            return error_msg, error_msg
+        
+        params = {
+            "q": query,
+            "location": location,
+            "hl": "en",
+            "gl": "us",
+            "google_domain": "google.com",
+            "api_key": api_key,
+            "num": 5  # Limit to 5 results
+        }
+        
+        search = GoogleSearch(params)
+        results = search.get_dict()
+        
+        # Check for errors
+        if "error" in results:
+            error_msg = f"❌ Search error: {results['error']}"
+            return error_msg, error_msg
+        
+        # Format the basic results
+        organic_results = results.get("organic_results", [])
+        if not organic_results:
+            no_results_msg = f"🔍 No web search results found for '{query}'"
+            return no_results_msg, no_results_msg
+        
+        # Build basic search results
+        formatted_results = [f"🌐 Web search results for '{query}':\n"]
+        content_summaries = []
+        urls_processed = []
+        
+        for i, result in enumerate(organic_results[:5], 1):  # Top 5 results
+            title = result.get("title", "No title")
+            link = result.get("link", "")
+            snippet = result.get("snippet", "No description available")
+            
+            # Truncate long snippets
+            if len(snippet) > 200:
+                snippet = snippet[:197] + "..."
+            
+            formatted_results.append(f"{i}. **{title}**")
+            formatted_results.append(f"   {snippet}")
+            formatted_results.append(f"   🔗 {link}\n")
+            
+            # Collect URLs for content processing (top 3 only to avoid being slow)
+            if include_content and i <= 3 and link:
+                urls_processed.append((i, title, link))
+        
+        basic_results = "\n".join(formatted_results)
+        
+        # Process webpage content if requested
+        if include_content and urls_processed:
+            content_summaries.append("\n📖 **Webpage Content Summaries:**\n")
+            
+            for idx, title, url in urls_processed:
+                print(f"🔄 Processing content from: {title}...")
+                content = process_webpage_content(url, max_chars=600)
+                content_summaries.append(f"**{idx}. {title}**")
+                content_summaries.append(f"{content}\n")
+        
+        # Combine results
+        full_response = basic_results
+        if content_summaries:
+            full_response += "\n".join(content_summaries)
+        
+        # Create condensed version for memory (memory-safe)
+        num_results = len(organic_results)
+        memory_version = f"🌐 Web search: '{query}' - Found {num_results} results"
+        if include_content:
+            memory_version += f" with content summaries from top {len(urls_processed)} websites"
+        
+        return full_response, memory_version
+        
+    except Exception as e:
+        error_msg = f"❌ Enhanced web search failed: {str(e)}"
+        return error_msg, error_msg
+
+def search_web(query: str, location: str = "United States") -> str:
+    """Original search_web function - now uses enhanced version internally.
+    
+    Args:
+        query: The search query
+        location: Location for localized results
+        
+    Returns:
+        Formatted string with search results and webpage content
+    """
+    full_response, _ = search_web_enhanced(query, location, include_content=True)
+    return full_response
+
 def run_chat_message(message: str, project_id: int = None) -> str:
     # Log the user message first
     log_message("user", message, project_id)
@@ -301,6 +546,19 @@ def run_chat_message(message: str, project_id: int = None) -> str:
             search_term = tool_args.get("term", "")
             memory_results = search_memory(search_term, limit=5, project_id=project_id)
             result = format_memory_results_for_llm(memory_results)
+        elif tool_name == "search_web":
+            # Handle web search with enhanced content reading
+            query = tool_args.get("query", "")
+            location = tool_args.get("location", "United States")
+            
+            # Use enhanced search that returns both full response and memory-safe version
+            full_response, memory_version = search_web_enhanced(query, location, include_content=True)
+            
+            # Log the memory-safe version instead of the full response
+            log_message("assistant", f"🔧 Web Search Tool: {memory_version}", project_id)
+            
+            # Return the full response for the AI to use
+            result = full_response
         else:
             result = f"Unknown tool: {tool_name}"
 
