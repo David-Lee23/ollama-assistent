@@ -14,6 +14,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from datetime import datetime
 from typing import Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from serpapi import GoogleSearch
 
 TOOLS = [  # same tool schema from chat.py
@@ -234,12 +235,12 @@ def format_memory_results_for_llm(results: list) -> str:
     
     return "\n".join(formatted_results)
 
-def fetch_webpage_content(url: str, timeout: int = 10) -> str:
-    """Fetch and extract clean text content from a webpage.
+def fetch_webpage_content(url: str, timeout: int = 5) -> str:
+    """Fast webpage content fetching with shorter timeout and optimized parsing.
     
     Args:
         url: The URL to fetch content from
-        timeout: Request timeout in seconds
+        timeout: Request timeout in seconds (reduced from 10 to 5)
         
     Returns:
         Clean text content from the webpage
@@ -249,102 +250,147 @@ def fetch_webpage_content(url: str, timeout: int = 10) -> str:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         
-        response = requests.get(url, headers=headers, timeout=timeout)
+        response = requests.get(url, headers=headers, timeout=timeout, stream=True)
         response.raise_for_status()
         
-        # Parse HTML content
-        soup = BeautifulSoup(response.content, 'html.parser')
+        # Limit content size to prevent processing huge files
+        content_limit = 100000  # 100KB max
+        content = b''
+        for chunk in response.iter_content(chunk_size=8192):
+            content += chunk
+            if len(content) > content_limit:
+                break
         
-        # Remove script and style elements
-        for script in soup(["script", "style", "nav", "header", "footer", "aside"]):
+        # Parse HTML content
+        soup = BeautifulSoup(content, 'html.parser')
+        
+        # Remove script and style elements quickly
+        for script in soup(["script", "style", "nav", "header", "footer", "aside", "iframe"]):
             script.decompose()
         
-        # Extract text from main content areas
-        main_content = soup.find('main') or soup.find('article') or soup.find('div', class_=re.compile(r'content|main|article'))
+        # Extract text from main content areas (prioritized approach)
+        main_content = (
+            soup.find('main') or 
+            soup.find('article') or 
+            soup.find('div', class_=re.compile(r'content|main|article|post', re.I)) or
+            soup.find('div', id=re.compile(r'content|main|article|post', re.I)) or
+            soup.body
+        )
         
         if main_content:
-            text = main_content.get_text()
+            text = main_content.get_text(separator=' ', strip=True)
         else:
-            # Fallback to body content
-            text = soup.get_text()
+            text = soup.get_text(separator=' ', strip=True)
         
-        # Clean up the text
-        lines = (line.strip() for line in text.splitlines())
-        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-        text = ' '.join(chunk for chunk in chunks if chunk)
+        # Quick text cleanup
+        text = re.sub(r'\s+', ' ', text).strip()
         
-        return text
+        # Return first 3000 chars to avoid processing huge content
+        return text[:3000] if len(text) > 3000 else text
         
     except Exception as e:
         return f"❌ Could not fetch content from {url}: {str(e)}"
 
-def summarize_content_with_ai(content: str, max_length: int = 500) -> str:
-    """Use Ollama to summarize long content intelligently.
+def summarize_content_with_ai(content: str, max_length: int = 400) -> str:
+    """Fast content summarization without AI calls for better performance.
     
     Args:
         content: The content to summarize
         max_length: Maximum length of the summary
         
     Returns:
-        AI-generated summary of the content
+        Summarized content using intelligent truncation
     """
-    try:
-        if len(content) <= max_length:
-            return content
-        
-        # Create a summarization prompt
-        messages = [
-            {
-                "role": "system",
-                "content": f"You are a helpful assistant that creates concise summaries. Summarize the following content in {max_length} characters or less. Focus on the key information and main points."
-            },
-            {
-                "role": "user", 
-                "content": f"Please summarize this content:\n\n{content[:2000]}..."  # Limit input to avoid token limits
-            }
-        ]
-        
-        response = chat(model="qwen3:4b", messages=messages)
-        summary = response.message.content.strip()
-        
-        # Ensure we don't exceed max_length
-        if len(summary) > max_length:
-            summary = summary[:max_length-3] + "..."
-            
-        return summary
-        
-    except Exception as e:
-        # Fallback to simple truncation if AI summarization fails
-        return content[:max_length-3] + "..." if len(content) > max_length else content
+    if len(content) <= max_length:
+        return content
+    
+    # Try to find good break points (sentences, paragraphs)
+    sentences = content.split('. ')
+    summary = ""
+    
+    for sentence in sentences:
+        if len(summary + sentence + '. ') <= max_length - 20:
+            summary += sentence + '. '
+        else:
+            break
+    
+    # If we couldn't build a good summary, just truncate intelligently
+    if len(summary) < max_length // 2:
+        summary = content[:max_length-3] + "..."
+    
+    return summary.strip()
 
-def process_webpage_content(url: str, max_chars: int = 800) -> str:
-    """Extract and process webpage content with intelligent summarization.
+def process_webpage_content(url: str, max_chars: int = 500) -> str:
+    """Fast webpage content processing without AI summarization.
     
     Args:
         url: URL to process
         max_chars: Maximum characters for the final content
         
     Returns:
-        Processed and summarized content
+        Processed content
     """
     try:
         # Fetch the webpage content
-        raw_content = fetch_webpage_content(url)
+        raw_content = fetch_webpage_content(url, timeout=3)  # Even shorter timeout
         
         if raw_content.startswith("❌"):
             return raw_content
         
-        # Filter out very short content (likely not useful)
-        if len(raw_content.strip()) < 100:
-            return f"📄 Content too brief to summarize from {url}"
+        # Filter out very short content
+        if len(raw_content.strip()) < 50:
+            return f"📄 Content too brief from {url}"
         
-        # Use AI to create intelligent summary
+        # Use simple summarization instead of AI
         summary = summarize_content_with_ai(raw_content, max_chars)
         
         return f"📄 {summary}"
         
     except Exception as e:
-        return f"❌ Error processing content from {url}: {str(e)}"
+        return f"❌ Error processing {url}: {str(e)}"
+
+def process_urls_concurrently(urls_data: list, max_chars: int = 500) -> list:
+    """Process multiple URLs concurrently for much better performance.
+    
+    Args:
+        urls_data: List of tuples (idx, title, url)
+        max_chars: Maximum characters per content summary
+        
+    Returns:
+        List of formatted content summaries
+    """
+    if not urls_data:
+        return []
+    
+    content_summaries = []
+    
+    # Process URLs concurrently with a ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        # Submit all tasks
+        future_to_data = {
+            executor.submit(process_webpage_content, url, max_chars): (idx, title, url)
+            for idx, title, url in urls_data
+        }
+        
+        # Collect results as they complete
+        for future in as_completed(future_to_data, timeout=10):  # 10 second total timeout
+            idx, title, url = future_to_data[future]
+            try:
+                content = future.result(timeout=1)  # 1 second per result
+                content_summaries.append((idx, title, content))
+            except Exception as e:
+                content_summaries.append((idx, title, f"❌ Timeout processing {title}"))
+    
+    # Sort by original index to maintain order
+    content_summaries.sort(key=lambda x: x[0])
+    
+    # Format results
+    formatted_summaries = []
+    for idx, title, content in content_summaries:
+        formatted_summaries.append(f"**{idx}. {title}**")
+        formatted_summaries.append(f"{content}\n")
+    
+    return formatted_summaries
 
 def search_web_enhanced(query: str, location: str = "United States", include_content: bool = True) -> Tuple[str, str]:
     """Enhanced web search with optional webpage content reading.
@@ -390,7 +436,6 @@ def search_web_enhanced(query: str, location: str = "United States", include_con
         
         # Build basic search results
         formatted_results = [f"🌐 Web search results for '{query}':\n"]
-        content_summaries = []
         urls_processed = []
         
         for i, result in enumerate(organic_results[:5], 1):  # Top 5 results
@@ -412,20 +457,16 @@ def search_web_enhanced(query: str, location: str = "United States", include_con
         
         basic_results = "\n".join(formatted_results)
         
-        # Process webpage content if requested
-        if include_content and urls_processed:
-            content_summaries.append("\n📖 **Webpage Content Summaries:**\n")
-            
-            for idx, title, url in urls_processed:
-                print(f"🔄 Processing content from: {title}...")
-                content = process_webpage_content(url, max_chars=600)
-                content_summaries.append(f"**{idx}. {title}**")
-                content_summaries.append(f"{content}\n")
-        
-        # Combine results
+        # Process webpage content concurrently if requested
         full_response = basic_results
-        if content_summaries:
-            full_response += "\n".join(content_summaries)
+        if include_content and urls_processed:
+            print(f"🔄 Processing {len(urls_processed)} websites concurrently...")
+            
+            # Use concurrent processing instead of sequential
+            content_summaries = process_urls_concurrently(urls_processed, max_chars=400)
+            
+            if content_summaries:
+                full_response += "\n📖 **Webpage Content Summaries:**\n" + "\n".join(content_summaries)
         
         # Create condensed version for memory (memory-safe)
         num_results = len(organic_results)
