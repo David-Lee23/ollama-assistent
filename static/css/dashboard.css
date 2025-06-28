@@ -130,6 +130,7 @@ body {
     flex-direction: column;
     background: var(--bg-primary);
     border-right: 1px solid var(--border-light);
+    min-height: 0; /* Ensure proper flex shrinking */
 }
 
 .chat-header {
@@ -150,6 +151,7 @@ body {
 
 .chat-messages {
     flex: 1;
+    min-height: 0; /* Critical: allows flex child to shrink below content size */
     overflow-y: auto;
     padding: var(--spacing-lg);
     scroll-behavior: smooth;
@@ -463,9 +465,12 @@ body {
 
 /* Project Info */
 .project-info {
-    padding: var(--spacing-sm) var(--spacing-lg);
+    padding: 4px var(--spacing-lg); /* Much smaller vertical padding */
     background: var(--bg-tertiary);
     border-bottom: 1px solid var(--border-light);
+    flex-shrink: 0; /* Prevent from growing too large */
+    max-height: 40px; /* Much smaller height */
+    overflow: hidden; /* Hide any overflow */
 }
 
 .project-description {
@@ -482,10 +487,16 @@ body {
 
 .project-summary {
     background: var(--bg-secondary);
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
     margin-top: var(--spacing-sm);
     border-radius: var(--radius-md);
     border: 1px solid var(--border-light);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.project-summary:hover {
+    border-color: var(--primary-color);
 }
 
 .project-summary i {
@@ -500,10 +511,18 @@ body {
 #project-summary-text {
     margin-top: var(--spacing-sm);
     padding-left: 1.5rem;
-    font-size: 0.9rem;
-    line-height: 1.5;
+    font-size: 0.8rem;
+    line-height: 1.3;
     color: var(--text-secondary);
     white-space: pre-line;
+    max-height: 30px; /* Even smaller initial height */
+    overflow: hidden; /* Hide overflow initially */
+    transition: max-height var(--transition-fast);
+}
+
+#project-summary-text.expanded {
+    max-height: 200px; /* Expanded height */
+    overflow-y: auto; /* Allow scrolling when expanded */
 }
 
 /* Modal Styles */

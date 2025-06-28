@@ -635,6 +635,17 @@ class StudentAssistant {
         if (project && project.summary) {
             summaryText.textContent = project.summary;
             summaryContainer.style.display = 'block';
+            
+            // Add click handler to toggle expansion
+            summaryContainer.onclick = () => {
+                summaryText.classList.toggle('expanded');
+            };
+            
+            // Add expand indicator to the summary header
+            const summaryHeader = summaryContainer.querySelector('strong');
+            if (summaryHeader && !summaryHeader.querySelector('.expand-indicator')) {
+                summaryHeader.innerHTML += ' <span class="expand-indicator" style="font-size: 0.7rem; color: var(--text-tertiary);">(click to expand)</span>';
+            }
         } else {
             summaryContainer.style.display = 'none';
         }
