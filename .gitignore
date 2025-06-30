@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+# Data files
+data/
+agent_memory.db
+*.db
+
 # Distribution / packaging
 .Python
 build/
@@ -212,4 +217,6 @@ config.json
 
 # Logs
 logs/
-*.log 
+*.log # Personal data and databases
+agent_memory.db
+*.db
