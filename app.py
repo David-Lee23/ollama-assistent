@@ -19,7 +19,7 @@ from chat_tools import run_chat_message
 from canvas_tools import get_assignments, get_announcements, get_calendar_events, get_courses
 
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(32)
+app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
 
 @app.route('/')
 def index():
