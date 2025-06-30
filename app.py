@@ -8,6 +8,7 @@ from flask import Flask, render_template, request, jsonify, session
 from datetime import datetime
 import os
 import json
+import secrets
 from memory import (
     log_message, get_conversation_messages, search_memory, 
     get_message_count, clear_history, get_conversation_summary,
@@ -18,7 +19,7 @@ from chat_tools import run_chat_message
 from canvas_tools import get_assignments, get_announcements, get_calendar_events, get_courses
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
+app.secret_key = secrets.token_hex(32)
 
 @app.route('/')
 def index():
@@ -364,4 +365,4 @@ if __name__ == '__main__':
     print("📱 Open your browser to: http://localhost:5000")
     print("🧠 Memory status:", get_message_count(), "messages stored")
     
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    app.run(debug=False, host='0.0.0.0', port=5000) 
