@@ -52,7 +52,7 @@ An AI-powered student assistant with Canvas LMS integration, conversation memory
    curl -fsSL https://ollama.ai/install.sh | sh
    
    # Pull a model (e.g., llama3)
-   ollama pull llama3
+   ollama pull qwen
    ```
 
 ## Usage
