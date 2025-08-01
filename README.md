@@ -51,7 +51,7 @@ An AI-powered student assistant with Canvas LMS integration, conversation memory
    # Install Ollama (see https://ollama.ai)
    curl -fsSL https://ollama.ai/install.sh | sh
    
-   # Pull a model (e.g., llama3)
+   # Pull a model (e.g., qwen2)
    ollama pull qwen2.5:7b
    ```
 
